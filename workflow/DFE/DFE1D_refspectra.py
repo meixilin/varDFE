@@ -33,7 +33,7 @@ def main():
         os.remove(outfile)
     # find the demographic model with selection
     # note that in Cache1D it creates a extrap function
-    func = DemogValidation().get_DFE_func_ex(modelname = args['demog_model'])
+    func = DemogValidation().get_DFE_func_ex(demog_model = args['demog_model'])
     LoggerDFE.logINFO('Beginning reference spectra using DFE_demog_function {0}.'.format(func))
     # generate spectra (negative spectra + neutral + positive)
     # numbers here is to make sure the step size is 0.01 in both positive and negative spectras

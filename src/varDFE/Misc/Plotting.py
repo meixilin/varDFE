@@ -86,9 +86,9 @@ def ggplot_ref_spectra_1d(outprefix, dictspectra):
     return pp
 
 def ggplot_dfe_pdf(outprefix,pdf,params):
-    xxn = np.logspace(-6,-1, num = 100) # only negative gammas
+    xxn = np.logspace(-6,-1, num = 100) # only negative gammas (here things are positive because of the sign change in integrate)
     xxb = np.concatenate([-np.logspace(-6,-1, num = 100),np.logspace(-6,-1, num = 100)]) # both negative and positive gammas
-    if pdf.__name__ == 'lourenco_eq_pdf':
+    if pdf.__name__ == 'lourenco_eq_pdf' or pdf.__name__ == 'shifted_gamma':
         xx = xxb
     else:
         xx = xxn

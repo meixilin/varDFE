@@ -15,62 +15,76 @@ class PDFValidation():
         self.existing_pdfs = {
             'gamma': ['shape', 'scale'],
             'neugamma': ['pneu', 'shape', 'scale'],
+            'gammalet': ['plet', 'shape', 'scale'],
             'neugammalet': ['plet', 'pneu', 'shape', 'scale'],
             'lognormal': ['mus', 'sigma'], # can't name as `mu`, will be confused with mutation rates
-            'lourenco_eq': ['m', 'sigma', 'Ne', 'Ne_dadi']
+            'lourenco_eq': ['m', 'sigma', 'Ne', 'Ne_dadi'],
+            'shifted_gamma': ['dist_opt', 'shape', 'scale']
         }
 
         self.pdf_function = {
             'gamma': PDFs.gamma,
             'neugamma': PDFs2.neugamma,
+            'gammalet': PDFs2.gammalet,
             'neugammalet': PDFs2.neugammalet,
             'lognormal': PDFs.lognormal,
-            'lourenco_eq': PDFs2.lourenco_eq_pdf
+            'lourenco_eq': PDFs2.lourenco_eq_pdf,
+            'shifted_gamma': PDFs2.shifted_gamma
         }
 
         self.Inference_optimizer = {
             'gamma': dadi.Inference.optimize_log,
             'neugamma': dadi.Inference.optimize_log,
+            'gammalet': dadi.Inference.optimize_log,
             'neugammalet': dadi.Inference.optimize_log,
             'lognormal': dadi.Inference.optimize, # mu can be negative, therefore can't use optimize_log
-            'lourenco_eq': dadi.Inference.optimize_log
+            'lourenco_eq': dadi.Inference.optimize_log,
+            'shifted_gamma': dadi.Inference.optimize_log
         }
 
         # for information, outputted to the summary
         self.Spectra_integrate_methods = {
             'gamma': 'integrate',
             'neugamma': 'integrate',
+            'gammalet': 'integrate',
             'neugammalet': 'integrate',
             'lognormal': 'integrate',
-            'lourenco_eq': 'integrate_continuous_pos'
+            'lourenco_eq': 'integrate_continuous_pos',
+            'shifted_gamma': 'integrate_continuous_pos'
         }
 
         # upper bound, lower bound and params for each parameters
-        # TODO: not sure if these are reasonable bounds
+        # TOUSERS: modify the upper and lower bounds and initial values to your needs
         self.upperbound = {
-            'gamma': [2.0,1e+6], # upper bound at 10000 was limiting MM16 inference
+            'gamma': [2.0,1e+6],
             'neugamma': [1.0,2.0,1e+6],
+            'gammalet': [0.5,2.0,1e+6],
             'neugammalet': [0.5,1.0,2.0,1e+6],
             'lognormal': [100.0,100.0],
             'lourenco_eq': [10.0,10.0,1e+9,1e+9],
+            'shifted_gamma': [10.0,2.0,1e+6]
         }
 
         # lower bound for each parameters
         self.lowerbound = {
             'gamma': [1e-3,1e-2],
-            'neugamma': [1e-5,1e-3,1e-2], # 100 was too low for some species
+            'neugamma': [1e-5,1e-3,1e-2],
+            'gammalet': [1e-5,1e-3,1e-2],
             'neugammalet': [1e-5,1e-5,1e-3,1e-2],
             'lognormal': [-100,1e-5], # negative mean gives left skewed lognormal
-            'lourenco_eq': [1e-5,1e-5,100,100]
+            'lourenco_eq': [1e-5,1e-5,100,100],
+            'shifted_gamma': [1e-5,1e-3,1e-2]
         }
 
         # initial values for each parameters
         self.initval = {
-            'gamma': [0.2,4000.0], # usual values output
+            'gamma': [0.2,4000.0], # near Huber 2017 human data
             'neugamma': [0.3,0.2,4000.0],
-            'neugammalet': [0.001,0.3,0.2,4000.0], # didn't use EW's initival values [0.2,0.999,0.1,2000.0] 0.2+0.9=1.1 reduced all gammas
+            'gammalet': [0.001,0.2,4000.0],
+            'neugammalet': [0.001,0.3,0.2,4000.0],
             'lognormal': [1.0,0.1], # most values were positive, start from positive
-            'lourenco_eq': [0.5,0.1,2400.0,4000.0] # near Huber 2017 human data
+            'lourenco_eq': [0.5,0.1,2400.0,4000.0], # near Huber 2017 human data
+            'shifted_gamma': [0.5,0.2,4000.0]
         }
 
     def query_params(self, pdfname):

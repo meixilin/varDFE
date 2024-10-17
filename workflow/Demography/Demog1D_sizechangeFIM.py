@@ -6,7 +6,7 @@ Date: 2022-04-22 11:26:01
 Example usage:
 python3 Demog1D_sizechangeFIM.py [-h] [--Nrun 20] --pop 'HS100' --mu '2.5e-8' --Lcds '19089129'
     --NS_S_scaling '2.31' [--initval '0.5,0.2'] [--mask_singleton]
-    sfs modelname outdir
+    sfs demog_model outdir
 '''
 
 ################################################################################
@@ -33,7 +33,7 @@ maxiter=100
 def main():
     # parse arguments
     args = InputDemog.parse_DemogArgs()
-    modelname = args['modelname']
+    demog_model = args['demog_model']
 
     ##### Input data
     fs=Util.LoadFoldSFS(sfs=args['sfs'],mask1=args['mask_singleton'])
@@ -41,9 +41,9 @@ def main():
     pts_l = [ns[0]+5,ns[0]+15,ns[0]+25] # slightly larger (+5) than ns and increase by 10
 
     ##### Set up Specific Model
-    func=DemogValidation().get_Demog_func_ex(modelname=modelname)
-    funcvars=DemogValidation().existing_models[modelname]
-    upperbound, lowerbound = DemogValidation().query_params(modelname=modelname)
+    func=DemogValidation().get_Demog_func_ex(demog_model=demog_model)
+    funcvars=DemogValidation().existing_models[demog_model]
+    upperbound, lowerbound = DemogValidation().query_params(demog_model=demog_model)
     LoggerDFE.logINFO('Beginning demography optimization using {0}. Total runs = {1}.\n\tparams={2}\n\tupper_bound = {3}\n\tlower_bound = {4}\n\tinitial_val = {5}'.format(
         func, args['Nrun'], funcvars,upperbound,lowerbound,args['initval']))
 
@@ -53,7 +53,7 @@ def main():
     sumdict = {} # summary dictionary
     for runNum in range(args['Nrun']):
         runNumstr=str(runNum).zfill(2) # use this as output file name
-        if modelname == 'one_epoch':
+        if demog_model == 'one_epoch':
             p0 = None
             popt = "N/A"
         else:
@@ -105,10 +105,10 @@ def main():
         # calculate best fit theta and rescale parameters
         theta = dadi.Inference.optimal_sfs_scaling(model, fs)
         Nanc=Util.CalcNanc(theta=theta,mu=args['mu'],L=args['Lsyn'])
-        scaled_popt = OutputDemog.demog_scaling(Nanc=Nanc,popt=popt,modelname=modelname)
+        scaled_popt = OutputDemog.demog_scaling(Nanc=Nanc,popt=popt,demog_model=demog_model)
 
         ##### Write output file
-        outprefix = '{0}/detail_{1}runs/{2}_demog_{3}_run{4}'.format(args['outdir'], args['Nrun'],args['pop'], modelname, runNumstr)
+        outprefix = '{0}/detail_{1}runs/{2}_demog_{3}_run{4}'.format(args['outdir'], args['Nrun'],args['pop'], demog_model, runNumstr)
         # all the results and settings
         output_data, output_names = OutputDemog.write_demog_result(
             args,(runNumstr, maxiter, ns, func, upperbound, lowerbound, p0, theta, ll_model, ll_data, Nanc),
@@ -119,7 +119,7 @@ def main():
         outputFigure = Plotting.plot_dadi_1d(outprefix,model,fs)
 
         ##### Output SFS (same for anymodel)
-        model.pop_ids = [fs.pop_ids[0]+'.'+modelname+runNumstr]
+        model.pop_ids = [fs.pop_ids[0]+'.'+demog_model+runNumstr]
         model.to_file(outprefix + '_unfolded.expSFS')
         model_fold = model.fold()
         model_fold.to_file(outprefix + '_folded.expSFS')
@@ -127,7 +127,7 @@ def main():
         LoggerDFE.logINFO('Rep{0}. Output *_unfolded.expSFS, *_folded.expSFS, *.png, *.txt to {1}'.format(runNumstr, outprefix))
 
     ##### Sort the results and check for convergence
-    sumprefix = '{0}/{1}_demog_{2}_'.format(args['outdir'], args['pop'], modelname)
+    sumprefix = '{0}/{1}_demog_{2}_'.format(args['outdir'], args['pop'], demog_model)
     sumdata = pd.DataFrame.from_dict(data = sumdict, orient = 'index',columns=output_names)
     sumdata.sort_values(by = ['ll_model'], ascending=False, inplace = True)
     sumdata = sumdata.reset_index(drop=True) # remove previous indices
@@ -145,7 +145,7 @@ def main():
     # copy the top one run to a new directory
     bestrunNumstr=str(sumdata.runNum.values[0]).zfill(2)
     bestprefix0='{0}/detail_{1}runs/{2}_demog_{3}_run{4}'.format(
-        args['outdir'], args['Nrun'],args['pop'], modelname, bestrunNumstr)
+        args['outdir'], args['Nrun'],args['pop'], demog_model, bestrunNumstr)
     bestrundir=args['outdir']+'/bestrun'
     Util.CreateNewDir(dirname=bestrundir)
     os.system('cp {0}* {1}/'.format(bestprefix0, bestrundir))
@@ -175,7 +175,7 @@ def main():
 
     # output to best_run folder
     bestprefix='{0}/bestrun/{1}_demog_{2}_run{3}'.format(
-        args['outdir'],args['pop'], modelname, bestrunNumstr)
+        args['outdir'],args['pop'], demog_model, bestrunNumstr)
     OutputDemog.write_fim_result(funcvars,best_params,best_theta,fim_sd,bestprefix+'.SD.txt')
 
     #### append the stddev and convergence info to the best run

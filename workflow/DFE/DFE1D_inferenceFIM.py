@@ -7,6 +7,7 @@ Example usage:
 python3 DFE1D_inferenceFIM.py [-h] [--Nrun 20] --pop 'HS100' --mu '2.5e-8' --Lcds '19089129'
     --NS_S_scaling NS_S_SCALING '2.31' [--mask_singleton]
     sfs ref_spectra pdfname theta_syn outdir
+Before commit id: fe712c33dc57c9d3f0be82ff32df8680ff2bc256. The DFE1D_inferenceFIM was single threaded. Now this workflow is multiprocess by default.
 '''
 
 ################################################################################
@@ -15,16 +16,19 @@ import sys
 import os
 import dadi
 import pickle
+import multiprocessing
 import pandas as pd
 import numpy as np
 
 from varDFE.DFE.PDFValidation import PDFValidation
 from varDFE.Misc import LoggerDFE, Plotting, Util
 from varDFE.DFE import InputDFE, OutputDFE
+from varDFE.DFE.DFEInferenceWorker import DFEInferenceWorker
 
 ################################################################################
 ## def variables
 maxiter=100
+cputouse = min(multiprocessing.cpu_count()-1, 20)
 
 ################################################################################
 ## main
@@ -47,92 +51,21 @@ def main():
         optimizer_name, pdf, args['Nrun'], pdfvars,upperbound,lowerbound,initval))
 
     ##### Carry out optimization
-    sumdict = {} # summary dictionary
+    # setup worker input list
+    listofinputs=[]
     for runNum in range(args['Nrun']):
-        runNumstr=str(runNum).zfill(2) # use this as output file name
-        p0_sel = dadi.Misc.perturb_params(
-            params=initval,
-            lower_bound=lowerbound,
-            upper_bound=upperbound,
-            fold=1)
-        # multinom=False --> use poisson likelihoood ie. not recalculate theta
-        # use optimize function for lognormal distribution. optimize_log for the rest
-        # change integrate methods for lourenco distribution
-        if pdfname == 'lourenco_eq':
-            popt = optimizer(
-                p0=p0_sel,
-                data=fs,
-                model_func=ref_spectra.integrate_continuous_pos,
-                pts=None,
-                func_args=[pdf, args['theta_nonsyn']],
-                lower_bound=lowerbound,
-                upper_bound=upperbound,
-                fixed_params=[None, None, None, args['Nanc']],
-                verbose=5,
-                maxiter=maxiter,
-                multinom=False)
-
-            # Calculate the best-fit model AFS. BK: No normalization in usual cases.
-            model=ref_spectra.integrate_continuous_pos(
-                params=popt,
-                ns=None,
-                sel_dist=pdf,
-                theta=args['theta_nonsyn'],
-                pts=None)
-        else:
-            popt = optimizer(
-                p0=p0_sel,
-                data=fs,
-                model_func=ref_spectra.integrate,
-                pts=None,
-                func_args=[pdf, args['theta_nonsyn']],
-                lower_bound=lowerbound,
-                upper_bound=upperbound,
-                verbose=5,
-                maxiter=maxiter,
-                multinom=False)
-
-            # Calculate the best-fit model AFS. BK: No normalization in usual cases.
-            model=ref_spectra.integrate(
-                params=popt,
-                ns=None,
-                sel_dist=pdf,
-                theta=args['theta_nonsyn'],
-                pts=None)
-
-        # Poisson Likelihood of the data given the model AFS.
-        # ML: not folding model AFS gives the same result as folded AFS.
-        ll_model = dadi.Inference.ll(model, fs)
-
-        # also get the LL of the data to itself (best possible ll)
-        ll_data=dadi.Inference.ll(fs, fs)
-
-        # (un)scale parameters by Na (from NeS to S) if needed
-        unscaled_popt = OutputDFE.dfe_unscaling(Nanc=args['Nanc'],popt=popt, pdfname=pdfname)
-
-        ##### Write output file
-        outprefix = '{0}/detail_{1}runs/{2}_DFE_{3}_run{4}'.format(
-            args['outdir'], args['Nrun'],args['pop'], pdfname, runNumstr)
-        # all the results and settings
-        output_data, output_names = OutputDFE.write_dfe_result(
-            args,(runNumstr, maxiter, ns, pdf, pdfvars, integrate_methods, optimizer_name, upperbound, lowerbound, initval, p0_sel, ll_model, ll_data),
-            popt,unscaled_popt,outprefix)
-        sumdict[runNum] = output_data
-
-        ##### Output plot (same for anymodel)
-        outputFigure = Plotting.plot_dadi_1d(outprefix,model,fs)
-
-        ##### Output SFS (same for anymodel)
-        model.pop_ids = [fs.pop_ids[0]+'.'+pdfname+runNumstr]
-        model.to_file(outprefix + '_unfolded.expSFS')
-        model_fold = model.fold()
-        model_fold.to_file(outprefix + '_folded.expSFS')
-
-        LoggerDFE.logINFO('Rep{0}. Output *_unfolded.expSFS, *_folded.expSFS, *.png, *.txt to {1}'.format(runNumstr, outprefix))
+        DFEinputs = [runNum, initval, lowerbound, upperbound, pdfname, optimizer, fs, ref_spectra, pdf, args, maxiter, ns, pdfvars, integrate_methods, optimizer_name]
+        listofinputs.append(DFEinputs)
+    # run optimization in cputosue processes
+    with multiprocessing.Pool(processes=cputouse) as pool:
+        listofresults0 = pool.map(DFEInferenceWorker, listofinputs)
+    # obtain the output_data and output_names
+    listofresults = [result[0] for result in listofresults0]
+    output_names = listofresults0[0][1]
 
     ##### Sort the results and check for convergence
     sumprefix = '{0}/{1}_DFE_{2}_'.format(args['outdir'], args['pop'], pdfname)
-    sumdata = pd.DataFrame.from_dict(data = sumdict, orient = 'index',columns=output_names)
+    sumdata = pd.DataFrame(data = listofresults, columns=output_names)
     sumdata.sort_values(by = ['ll_model'], ascending=False, inplace = True)
     sumdata = sumdata.reset_index(drop=True) # remove previous indices
     pd.set_option('display.max_columns', None)
@@ -163,7 +96,8 @@ def main():
     # plot the pdf as well
     Plotting.ggplot_dfe_pdf(outprefix=sumprefix+'PDF',pdf=pdf,params=np.array(best_params))
 
-    #### Fisher's Information Matrix (func_ex in demography)
+    #### Fisher's Information Matrix (func_ex in demography).
+    # Some input for lambda was not accessed (i.e. ns, grid_pts)`params, ns, grid_pts` because you need these for Godambe.py to get correct number of inputs.
     integrate_func = lambda params, ns, grid_pts: ref_spectra.integrate(params=params, ns=None, sel_dist=pdf, theta=args['theta_nonsyn'])
 
     # get standard deviation of the best parameter values

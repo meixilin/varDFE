@@ -8,10 +8,8 @@ from dadi import DFE
 from mpmath import mp
 mp.dps = 50
 
-# huber et al. 2017 with
-# modified mins at 1e-5 instead of 1e-4 to avoid plotting problem
 # gamma distributed dfe with elevated neutral proportions
-# here pneu is not a point mass, but shifts up gamma by pneu/mins
+# here pneu shifts up gamma by pneu/mins
 # adapted from: https://dadi.readthedocs.io/en/latest/user-guide/dfe-inference/
 def neugamma(xx, params):
     """
@@ -41,8 +39,6 @@ def gammalet(xx, params):
     # Convert xx to an array
     xx = np.atleast_1d(xx)
     out = (1-plet)*DFE.PDFs.gamma(xx, (alpha, beta))
-    # # add the lethal mass at 10001-10002 (ie. larger than the max refspectra)
-    # out[np.logical_and(maxs <= xx, xx < maxs+1)] += plet
     # Reduce xx back to scalar if it's possible
     return  np.squeeze(out)
 
@@ -63,14 +59,12 @@ def neugammalet(xx, params):
     out = (1-pneu-plet)*DFE.PDFs.gamma(xx, (alpha, beta))
     # Assume gamma < 1e-5 (at dadi website: 1e-4) is essentially neutral
     out[np.logical_and(0 <= xx, xx < mins)] += pneu/mins
-    # # add the lethal mass at 10001-10002 (ie. larger than the max refspectra)
-    # out[np.logical_and(maxs <= xx, xx < maxs+1)] += plet
     # Reduce xx back to scalar if it's possible
     return  np.squeeze(out)
 
 # lourenco equilibrium eq. 15
 # adapted from Huber et al. 2017 implementation
-# TODO: not all values integrate to one
+# 2023-08-23 13:14:15 updated to the correct PDF
 def lourenco_eq(xx, params):
     """
     Define a FGM based mutation-selection-drift balance DFE
@@ -78,7 +72,7 @@ def lourenco_eq(xx, params):
     """
     m, sigma, Ne, Ne_dadi = params # Ne_dadi is not estimated
     s = xx/(2.0*Ne_dadi)
-    prob = (mp.power(2, (1-m)/2.)*mp.power(Ne, 0.5)*mp.power(mp.fabs(s), (m-1)/2.)*(1+1/(Ne*mp.power(sigma, 2.)))*mp.exp(-Ne*s) / (mp.power(mp.pi,0.5)*mp.power(sigma, m)*mp.gamma(m/2.))) * mp.besselk((m-1)/2., Ne*mp.fabs(s)*mp.power(1+1/(Ne*mp.power(sigma, 2.)),0.5))
+    prob = (mp.power(2, (1-m)/2.)*mp.power(Ne, 0.5)*mp.power(mp.fabs(s), (m-1)/2.)*mp.power(1+1/(Ne*mp.power(sigma, 2.)), (1-m)/4.)*mp.exp(-Ne*s) / (mp.power(mp.pi,0.5)*mp.power(sigma, m)*mp.gamma(m/2.))) * mp.besselk((m-1)/2., Ne*mp.fabs(s)*mp.power(1+1/(Ne*mp.power(sigma, 2.)),0.5))
     # the probability is scaled for s, convert to xx
     out = float(prob/(2.0*Ne_dadi))
     return out
@@ -90,3 +84,14 @@ def lourenco_eq_pdf(xx, params):
     else:
         out = [lourenco_eq(x, params) for x in xx]
         return np.array(out)
+
+# implemented by huber et al. 2017. derived in martin and lenormand 2006 (eq. 5).
+# TOUSERS: THIS FUNCTION IS NOT TESTED AND FULLY IMPLEMENTED, USED AT YOUR OWN RISK.
+def shifted_gamma(xx, params):
+    """
+    params: [shift, alpha, beta] = [dist_opt, shape, scale] # dist_opt = distance from the optimum
+    """
+    scal_fac=1
+    shift, alpha, beta = params
+    # need to use `-xx` instead of `+xx` because this included positive gammas and no sign conversion is available for Cache1D.integrate_continuous_pos.
+    return((ssd.gamma.pdf((shift - xx)*scal_fac, alpha, scale=beta))/scal_fac)

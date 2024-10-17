@@ -9,14 +9,14 @@ from varDFE.Misc import LoggerDFE
 import warnings
 warnings.simplefilter(action='ignore', category=UserWarning)
 
-def demog_scaling(Nanc, popt, modelname):
+def demog_scaling(Nanc, popt, demog_model):
     """
     Model specific scaling of parameters by Nanc
     """
     # the first half is nua,nub,nuc; the second half is Ta,Tb,Tc
     # nu_scaled --> in units of diploid
     # T_scaled --> in units of generations
-    if modelname == 'one_epoch':
+    if demog_model == 'one_epoch':
         scaled_popt = None
     else:
         nepoch=int(len(popt)/2)
@@ -43,7 +43,7 @@ def write_demog_result(args, results, popt, scaled_popt, outprefix):
     """
     # split results
     runNum, maxiter, ns, func, upperbound, lowerbound, p0, theta, ll_model, ll_data, Nanc = results
-    modelname = args['modelname']
+    demog_model = args['demog_model']
 
     # organize variables that need to be concatenated
     upper_bound = join_params(upperbound)
@@ -57,7 +57,7 @@ def write_demog_result(args, results, popt, scaled_popt, outprefix):
         func.__name__,args['mu'],args['Lcds'],args['NS_S_scaling'],args['Lsyn'],
         upper_bound,lower_bound,initval,initval_p0,
         theta,ll_model,ll_data, Nanc]
-    if modelname == 'one_epoch':
+    if demog_model == 'one_epoch':
         output_data = additional_data
     else:
         output_data = additional_data + popt.tolist() + scaled_popt.tolist()
@@ -68,10 +68,10 @@ def write_demog_result(args, results, popt, scaled_popt, outprefix):
         'demog_func', 'mu', 'Lcds', 'NS_S','Lsyn',
         'upper_bound','lower_bound','initval','initval_p0',
         'theta','ll_model','ll_data', 'Nanc']
-    if modelname == 'one_epoch':
+    if demog_model == 'one_epoch':
         output_names = additional_data_names
     else:
-        popt_names=DemogValidation().existing_models[modelname]
+        popt_names=DemogValidation().existing_models[demog_model]
         scaled_popt_names=[ii+'_sc' for ii in popt_names]
         output_names = additional_data_names + popt_names + scaled_popt_names
 

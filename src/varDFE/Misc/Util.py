@@ -3,6 +3,7 @@ import os
 import dadi
 from varDFE.Misc import LoggerDFE
 from scipy.stats import variation
+import numpy
 
 def ExistingFile(fname):
     """
@@ -17,11 +18,15 @@ def CreateNewDir(dirname, warning=False):
     """
     Check if directory exists. If not create one recursively.
     """
-    if not os.path.isdir(dirname):
-        if warning:
-            LoggerDFE.logWARN("Making output directory {0}".format(dirname))
-        os.makedirs(dirname)
-    return None
+    # if need to create newdir
+    if dirname == '':
+        return None
+    else:
+        if not os.path.isdir(dirname):
+            if warning:
+                LoggerDFE.logWARN("Making output directory {0}".format(dirname))
+            os.makedirs(dirname)
+        return None
 
 def GetFuncName(func):
     return str(func.__module__) + "." + str(func.__name__)
@@ -51,7 +56,6 @@ def LoadFoldSFS(sfs,mask1=False):
 def CheckConvergence(dt,params,topn=20):
     """
     Check for convergence across runs. Use CV as metrics for parameters. NOT testing for convergence, just output the values.
-    previously: CV < 0.8 and LL1-LL20 < 100
     """
     # if dt has less than 20 rows
     topn = min(dt.shape[0],topn)
@@ -87,3 +91,29 @@ def CalcLsLns(Lcds: float, NS_S_scaling: float):
 def CalcNanc(theta, mu, L):
     Nanc = theta / (4*mu*L)
     return Nanc
+
+def perturb_params(params, fold=1, lower_bound=None, upper_bound=None):
+    """
+    Generate a perturbed set of parameters.
+
+    Each element of params is radomly perturbed <fold> factors of 2 up or down.
+    fold: Number of factors of 2 to perturb by
+    lower_bound: If not None, the resulting parameter set is adjusted to have
+                 all value greater than lower_bound.
+    upper_bound: If not None, the resulting parameter set is adjusted to have
+                 all value less than upper_bound.
+
+    This perturb_params works with multiprocess.
+    """
+    pnew = params * 2**(fold * (2*numpy.random.RandomState().uniform(size=len(params))-1))
+    if lower_bound is not None:
+        for ii,bound in enumerate(lower_bound):
+            if bound is None:
+                lower_bound[ii] = -numpy.inf
+        pnew = numpy.maximum(pnew, 1.01*numpy.asarray(lower_bound))
+    if upper_bound is not None:
+        for ii,bound in enumerate(upper_bound):
+            if bound is None:
+                upper_bound[ii] = numpy.inf
+        pnew = numpy.minimum(pnew, 0.99*numpy.asarray(upper_bound))
+    return pnew

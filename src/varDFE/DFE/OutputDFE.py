@@ -16,7 +16,7 @@ def dfe_unscaling(Nanc, popt, pdfname):
     """
     if pdfname == 'gamma':
         unscaled_popt=np.divide(popt, np.array([1,2*Nanc]))
-    elif pdfname == 'neugamma':
+    elif pdfname == 'neugamma' or pdfname == 'gammalet' or pdfname == 'shifted_gamma':
         unscaled_popt=np.divide(popt, np.array([1,1,2*Nanc]))
     elif pdfname == 'neugammalet':
         unscaled_popt=np.divide(popt, np.array([1,1,1,2*Nanc]))

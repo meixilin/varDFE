@@ -49,9 +49,9 @@ def parse_DemogArgs():
     parser.add_argument(
         "sfs",type=Util.ExistingFile,
         help="path to FOLDED SFS in dadi format from easysfs (mask optional)")
-    # in demography related things, modelname is used. in DFE, this is referred to as 'demog_model'
+    # 2023-03-25 19:43:58 change to `demog_model` to match DFE units
     parser.add_argument(
-        "modelname", type=DemogValidation().ExistingModel,
+        "demog_model", type=DemogValidation().ExistingModel,
         help='Demographic model to use.')
 
     parser.add_argument(
@@ -60,22 +60,22 @@ def parse_DemogArgs():
 
     args = vars(parser.parse_args())
 
-    modelname = args['modelname']
+    demog_model = args['demog_model']
 
     # convert the initial values for demography
-    if modelname == 'one_epoch':
+    if demog_model == 'one_epoch':
         # assign None regardless of input
         args['initval'] = None
     else:
         initval=args['initval']
         # fill in initval if there is no input
         if initval is None:
-            nparams = len(DemogValidation().existing_models[modelname])
+            nparams = len(DemogValidation().existing_models[demog_model])
             initval = ','.join(['1']*nparams)
         #strip quotes from initval if inputted
         if '"' in initval:
             initval=initval.strip('"')
-        demog_params, demog_paramdict = DemogValidation().split_demog_params(demog_params=initval, modelname = modelname)
+        demog_params, demog_paramdict = DemogValidation().split_demog_params(demog_params=initval, demog_model = demog_model)
         args['initval'] = demog_params
 
     # create output directory including the detailed directories

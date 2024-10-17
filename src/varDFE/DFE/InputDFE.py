@@ -195,7 +195,7 @@ def parse_SpectraArgs():
     if '"' in demog_params0:
         demog_params0=demog_params0.strip('"')
     demog_params, demog_paramdict = DemogValidation().split_demog_params(
-        demog_params=demog_params0, modelname = args['demog_model'])
+        demog_params=demog_params0, demog_model = args['demog_model'])
     args['demog_params'] = demog_params
     LoggerDFE.logINFO('Demographic params {0}'.format(LoggerDFE.join_zip(demog_paramdict, sep = ',')))
 

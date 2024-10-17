@@ -302,7 +302,6 @@ class Cache1D:
         # compute weight for the effectively lethal portion
         weight_del, err_del = scipy.integrate.quad(sel_dist, -np.inf, largest_gamma,
                                                 args=params)
-        # TODO: here the very positive section were not integrated (largest_posgamma to np.inf)
 
         fs += self.neu_spec*weight_neu
         fs += spectra_neg[0]*weight_del

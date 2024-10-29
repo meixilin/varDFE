@@ -42,7 +42,10 @@ Last updated: 2024-10-16
 |   └── Demography
 |       └── Demog1D_sizechangeFIM.py
 ├── example # example folder for running the workflows
-│   └── [Upcoming information]
+│   ├── MIS.sfs
+│   ├── SYN.sfs
+│   ├── varDFE.ipynb
+│   └── output # output folder from varDFE.ipynb (not included)
 ├── pyproject.toml
 └── setup.cfg
 ```
